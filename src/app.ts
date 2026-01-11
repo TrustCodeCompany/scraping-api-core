@@ -3,6 +3,7 @@ import cors from 'cors';
 import sunatRoutes from "@modules/sunat/sunatRoutes";
 import {errorHandler} from "@shared/middleware/errorHandler";
 import {logger} from "@utils/logger";
+import { setupSwagger } from "@shared/utils/swagger";
 
 //import {logger} from "shared/utils/logger";
 
@@ -14,6 +15,9 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Swagger
+setupSwagger(app);
 
 // Routes
 /*app.use(path + '/products', productRoutes);
