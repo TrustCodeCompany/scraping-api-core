@@ -12,7 +12,7 @@ router.post('/information-ruc', SunatController.consultationRUC);
 router.post('/process-batch', SunatController.processBatchV2);
 //router.post('/process-client', SunatController.processClient);
 //router.post('/secure-url-client', SunatController.secureUrl);
-//router.post('/all-secure-url-clients', SunatController.processAllSecureUrlClients);
+router.post('/secure-url-batch', SunatController.secureUrlClients);
 router.get('/sunat-status', SunatController.sunatStatus);
 router.get('/sunat-shutdown', SunatController.shutdown);
 router.post('/validate-url', SunatController.validateURL);

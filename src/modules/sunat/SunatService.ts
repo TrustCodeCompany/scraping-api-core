@@ -42,7 +42,7 @@ class SunatService extends BaseService {
                 // ❌ URL generada pero inválida
                 throw new Error(result.reason || 'URL generada es inválida');
             }
-            console.log(`✅ URL válida generada para RUC: ${client.ruc_cliente}`);
+            logger.info(`✅ URL válida generada para RUC: ${client.ruc_cliente}`);
             return {
                 ruc: client.ruc_cliente,
                 razon_social: client.razon_s_cliente,
@@ -387,9 +387,9 @@ class SunatService extends BaseService {
     /**
      * Genera todas las url seguras
      */
-    async getAllSecureUrlOfClients(loginId: number, clients: Client[]) {
+    async getAllSecureUrlOfClients(clients: Client[]) {
         return this.handleServiceOperation(async () => {
-            console.log(`🚀 Iniciando proceso completo para login ${loginId}...`);
+            logger.info(`🚀 Iniciando proceso completo para obtener urls`);
 
             // PASO 1: Obtener clientes de la BD
             //const clients = await this.model.findAllClientsByIdLogin(loginId);
@@ -403,48 +403,41 @@ class SunatService extends BaseService {
                 };
             }
 
-            console.log(`📊 ${clients.length} clientes encontrados`);
+            logger.info(`📊 ${clients.length} clientes encontrados`);
 
             const portalSunat = new PortalSunat();
 
             const urlPromises = clients.map(client =>
-                portalSunat.generateLoginUrl({
-                    ruc_cliente: client.ruc_cliente,
-                    usuario_s_cliente: client.usuario_s_cliente,
-                    clave_sol_cliente: client.clave_sol_cliente
-                })
-                    .then(url => ({
-                        client: client,
-                        url: url,
+                portalSunat.generateAndValidateLoginUrlV2({
+                        ruc_cliente: client.ruc_cliente,
+                        usuario_s_cliente: client.usuario_s_cliente,
+                        clave_sol_cliente: client.clave_sol_cliente
+                }).then(data => ({
+                        ruc: client.ruc_cliente,
+                        razonSocial: client.razon_s_cliente,
+                        secure_url: data,
                         success: true
-                    }))
-                    .catch(error => ({
-                        client: client,
-                        url: null,
+                })).catch(error => ({
+                        ruc: client.ruc_cliente,
+                        razonSocial: client.razon_s_cliente,
+                        secure_url: null,
                         success: false,
                         error: error.message
-                    }))
+                }))
             );
 
             const urlResults = await Promise.all(urlPromises);
 
-            // Separar URLs exitosas de las fallidas
-            const validResults = urlResults.filter(r => r.success && r.url);
-
-            if (validResults.length === 0) {
+            return urlResults.map(result => {
                 return {
-                    success: false,
-                    message: 'No se pudo generar ninguna URL válida',
-                    totalClients: clients.length,
-                    results: []
-                };
-            }
+                    ruc: result.ruc,
+                    razonSocial: result.razonSocial,
+                    secure_url: result.secure_url?.url,
+                    reason: result.secure_url?.reason,
+                    valid: result.secure_url?.valid,
+                }
+            })
 
-            const validUrls = validResults.map(r => r.url);
-
-            return {
-                urls: validUrls
-            };
         });
     }
 

@@ -548,10 +548,15 @@ class SunatController {
     }
 
     /**
-     * hidden-swagger
-     * /sunat/all-secure-url-clients:
+     * @swagger
+     * /sunat/secure-url-batch:
      *   post:
-     *     summary: Genera URLs seguras para todos los clientes de un login
+     *     summary: Genera URLs seguras masivamente para una lista de clientes
+     *     description: |
+     *       Genera y valida URLs autenticadas para múltiples clientes simultáneamente.
+     *       - Procesa hasta 100 clientes por petición.
+     *       - Valida automáticamente las credenciales de cada cliente.
+     *       - Retorna el estado individual (éxito/error) para cada cliente procesado.
      *     tags: [Sunat]
      *     requestBody:
      *       required: true
@@ -559,27 +564,115 @@ class SunatController {
      *         application/json:
      *           schema:
      *             type: object
+     *             required:
+     *               - clients
      *             properties:
-     *               login_id:
-     *                 type: number
      *               clients:
      *                 type: array
+     *                 minItems: 1
+     *                 maxItems: 100
+     *                 description: Lista de clientes para generar sus URLs
      *                 items:
      *                   $ref: '#/components/schemas/Client'
+     *           example:
+     *             clients:
+     *               - ruc_cliente: "20123456789"
+     *                 usuario_s_cliente: "USERTEST"
+     *                 clave_sol_cliente: "password123"
+     *                 razon_s_cliente: "EMPRESA DEMO SAC"
+     *               - ruc_cliente: "20987654321"
+     *                 usuario_s_cliente: "ADMIN77"
+     *                 clave_sol_cliente: "clave456"
+     *                 razon_s_cliente: "COMERCIAL XYZ SRL"
      *     responses:
      *       200:
-     *         description: URLs generadas
+     *         description: Lista de URLs generadas y validadas
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 status:
+     *                   type: string
+     *                   example: "success"
+     *                 data:
+     *                   type: array
+     *                   items:
+     *                     type: object
+     *                     properties:
+     *                       ruc:
+     *                         type: string
+     *                         description: RUC del cliente
+     *                         example: "20123456789"
+     *                       razonSocial:
+     *                         type: string
+     *                         description: Razón social del cliente
+     *                         example: "EMPRESA DEMO SAC"
+     *                       secure_url:
+     *                         type: string
+     *                         format: uri
+     *                         description: URL segura generada (null si falló)
+     *                         example: "https://e-menu.sunat.gob.pe/..."
+     *                       valid:
+     *                         type: boolean
+     *                         description: Indica si la generación fue exitosa y la URL es válida
+     *                         example: true
+     *                       reason:
+     *                         type: string
+     *                         description: Motivo del fallo (solo si valid=false)
+     *                         example: "Credenciales incorrectas"
+     *             example:
+     *               status: "success"
+     *               data:
+     *                 - ruc: "20123456789"
+     *                   razonSocial: "EMPRESA DEMO SAC"
+     *                   secure_url: "https://e-menu.sunat.gob.pe/..."
+     *                   valid: true
+     *                   reason: ""
+     *                 - ruc: "20987654321"
+     *                   razonSocial: "COMERCIAL XYZ SRL"
+     *                   secure_url: null
+     *                   valid: false
+     *                   reason: "Credenciales incorrectas"
+     *       400:
+     *         description: Error de validación en la petición (ej. más de 100 clientes o array vacío)
+     *       500:
+     *         description: Error interno del servidor
      */
-    static async processAllSecureUrlClients(req: Request, res: Response, next: NextFunction) {
+    static async secureUrlClients(req: Request, res: Response, next: NextFunction) {
         try {
-            const { login_id, clients } = req.body;
+            const { clients } = req.body;
 
-            const result = await sunatService.getAllSecureUrlOfClients(login_id, clients);
+            if (!clients || !Array.isArray(clients)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Se requiere un array de URLs'
+                });
+            }
 
-            res.json(result);
+            if (clients.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'El array de URLs está vacío'
+                });
+            }
+
+            if (clients.length > 100) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Máximo 100 URLs por batch'
+                });
+            }
+
+            const result = await sunatService.getAllSecureUrlOfClients(clients);
+
+            res.json({
+                status: 'success',
+                data: result
+            });
 
         } catch (error: any) {
-            console.error('❌ Error en /processAllSecureUrlClients:', error);
+            console.error('❌ Error en /secureUrlClients:', error);
             res.status(500).json({
                 success: false,
                 error: 'Error generando URL',
