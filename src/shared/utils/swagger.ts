@@ -125,15 +125,16 @@ export const setupSwagger = (app: Express) => {
         return res;
       }
     },
-    customCss: `
+    /*customCss: `
       .swagger-ui .topbar { display: none }
       .swagger-ui .info { margin: 20px 0; }
       .swagger-ui .scheme-container { 
-        background: #1b1b1b; 
+        background: orange; 
         padding: 20px;
         border-radius: 4px;
       }
-    `,
+    `,*/
+    customCssUrl: "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/themes/theme-material.css",
     customSiteTitle: 'TrustBalance API Docs',
     customfavIcon: '/favicon.ico'
   };
