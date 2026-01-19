@@ -8,20 +8,20 @@ import sunatService from "@modules/sunat/SunatService";
  *     Client:
  *       type: object
  *       required:
- *         - ruc_cliente
- *         - usuario_s_cliente
- *         - clave_sol_cliente
+ *         - ruc
+ *         - userSol
+ *         - passwordSol
  *       properties:
- *         ruc_cliente:
+ *         ruc:
  *           type: string
  *           description: RUC del cliente
- *         usuario_s_cliente:
+ *         userSol:
  *           type: string
  *           description: Usuario SOL del cliente
- *         clave_sol_cliente:
+ *         passwordSol:
  *           type: string
  *           description: Clave SOL del cliente
- *         razon_s_cliente:
+ *         businessName:
  *           type: string
  *           description: Razón social del cliente
  */
@@ -43,10 +43,10 @@ class SunatController {
      *           schema:
      *             $ref: '#/components/schemas/Client'
      *           example:
-     *             ruc_cliente: "20123456789"
-     *             usuario_s_cliente: "USERTEST"
-     *             clave_sol_cliente: "password123"
-     *             razon_s_cliente: "EMPRESA DEMO SAC"
+     *             ruc: "20123456789"
+     *             userSol: "USERTEST"
+     *             passwordSol: "password123"
+     *             businessName: "EMPRESA DEMO SAC"
      *     responses:
      *       200:
      *         description: URL segura generada con éxito
@@ -115,10 +115,10 @@ class SunatController {
      *           schema:
      *             $ref: '#/components/schemas/Client'
      *           example:
-     *             ruc_cliente: "20123456789"
-     *             usuario_s_cliente: "USERTEST"
-     *             clave_sol_cliente: "password123"
-     *             razon_s_cliente: "EMPRESA DEMO SAC"
+     *             ruc: "20123456789"
+     *             userSol: "USERTEST"
+     *             passwordSol: "password123"
+     *             businessName: "EMPRESA DEMO SAC"
      *     responses:
      *       200:
      *         description: URL segura generada y validada con éxito
@@ -473,16 +473,16 @@ class SunatController {
      */
     static async secureUrlClient(req: Request, res: Response, next: NextFunction) {
         try {
-            const {ruc_cliente, usuario_s_cliente, clave_sol_cliente} = req.body;
+            const {ruc, userSol, passwordSol} = req.body;
 
-            if (!ruc_cliente || !usuario_s_cliente || !clave_sol_cliente) {
+            if (!ruc || !userSol || !passwordSol) {
                 return res.status(400).json({
                     success: false,
                     error: 'ruc_cliente, usuario_s_cliente y clave_sol_cliente son requeridos'
                 });
             }
 
-            const client = {ruc_cliente, usuario_s_cliente, clave_sol_cliente};
+            const client = {ruc, userSol, passwordSol};
             const result = await sunatService.getSecureUrlClient(client);
 
             res.json(result);
@@ -576,14 +576,14 @@ class SunatController {
      *                   $ref: '#/components/schemas/Client'
      *           example:
      *             clients:
-     *               - ruc_cliente: "20123456789"
-     *                 usuario_s_cliente: "USERTEST"
-     *                 clave_sol_cliente: "password123"
-     *                 razon_s_cliente: "EMPRESA DEMO SAC"
-     *               - ruc_cliente: "20987654321"
-     *                 usuario_s_cliente: "ADMIN77"
-     *                 clave_sol_cliente: "clave456"
-     *                 razon_s_cliente: "COMERCIAL XYZ SRL"
+     *               - ruc: "20123456789"
+     *                 userSol: "USERTEST"
+     *                 passwordSol: "password123"
+     *                 businessName: "EMPRESA DEMO SAC"
+     *               - ruc: "20987654321"
+     *                 userSol: "ADMIN77"
+     *                 passwordSol: "clave456"
+     *                 businessName: "COMERCIAL XYZ SRL"
      *     responses:
      *       200:
      *         description: Lista de URLs generadas y validadas
@@ -604,11 +604,11 @@ class SunatController {
      *                         type: string
      *                         description: RUC del cliente
      *                         example: "20123456789"
-     *                       razonSocial:
+     *                       businessName:
      *                         type: string
      *                         description: Razón social del cliente
      *                         example: "EMPRESA DEMO SAC"
-     *                       secure_url:
+     *                       secureUrl:
      *                         type: string
      *                         format: uri
      *                         description: URL segura generada (null si falló)
@@ -625,13 +625,13 @@ class SunatController {
      *               status: "success"
      *               data:
      *                 - ruc: "20123456789"
-     *                   razonSocial: "EMPRESA DEMO SAC"
-     *                   secure_url: "https://e-menu.sunat.gob.pe/..."
+     *                   businessName: "EMPRESA DEMO SAC"
+     *                   secureUrl: "https://e-menu.sunat.gob.pe/..."
      *                   valid: true
      *                   reason: ""
      *                 - ruc: "20987654321"
-     *                   razonSocial: "COMERCIAL XYZ SRL"
-     *                   secure_url: null
+     *                   businessName: "COMERCIAL XYZ SRL"
+     *                   secureUrl: null
      *                   valid: false
      *                   reason: "Credenciales incorrectas"
      *       400:
@@ -712,18 +712,18 @@ class SunatController {
      *                   type: object
      *                   required:
      *                     - ruc
-     *                     - secure_url
+     *                     - secureUrl
      *                   properties:
      *                     ruc:
      *                       type: string
      *                       pattern: '^[0-9]{11}$'
      *                       description: RUC del cliente (11 dígitos)
      *                       example: "20123456789"
-     *                     razonSocial:
+     *                     businessName:
      *                       type: string
      *                       description: Razón social del cliente
      *                       example: "EMPRESA DEMO SAC"
-     *                     secure_url:
+     *                     secureUrl:
      *                       type: string
      *                       format: uri
      *                       description: URL segura pre-generada para acceder al buzón del cliente
@@ -734,18 +734,18 @@ class SunatController {
      *               value:
      *                 clients:
      *                   - ruc: "20123456789"
-     *                     razonSocial: "EMPRESA DEMO SAC"
-     *                     secure_url: "https://ww1.sunat.gob.pe/ol-ti-itconsvalicpe/Login.aspx?..."
+     *                     businessName: "EMPRESA DEMO SAC"
+     *                     secureUrl: "https://ww1.sunat.gob.pe/ol-ti-itconsvalicpe/Login.aspx?..."
      *             multiple_clients:
      *               summary: Múltiples clientes
      *               value:
      *                 clients:
      *                   - ruc: "20123456789"
-     *                     razonSocial: "EMPRESA DEMO SAC"
-     *                     secure_url: "https://ww1.sunat.gob.pe/..."
+     *                     businessName: "EMPRESA DEMO SAC"
+     *                     secureUrl: "https://ww1.sunat.gob.pe/..."
      *                   - ruc: "20987654321"
-     *                     razonSocial: "COMERCIAL XYZ SRL"
-     *                     secure_url: "https://ww1.sunat.gob.pe/..."
+     *                     businessName: "COMERCIAL XYZ SRL"
+     *                     secureUrl: "https://ww1.sunat.gob.pe/..."
      *     responses:
      *       200:
      *         description: Batch procesado exitosamente
@@ -803,7 +803,7 @@ class SunatController {
      *                             type: string
      *                             description: RUC del cliente
      *                             example: "20123456789"
-     *                           razonSocial:
+     *                           businessName:
      *                             type: string
      *                             description: Razón social del cliente
      *                             example: "EMPRESA DEMO SAC"
@@ -849,7 +849,7 @@ class SunatController {
      *                     averagePerClient: "0.91s"
      *                     results:
      *                       - ruc: "20123456789"
-     *                         razonSocial: "EMPRESA DEMO SAC"
+     *                         businessName: "EMPRESA DEMO SAC"
      *                         success: true
      *                         notifications:
      *                           - title: "ASUNTO: Notificación de Resolución..."
@@ -860,7 +860,7 @@ class SunatController {
      *                             read: 1
      *                         count: 25
      *                       - ruc: "20987654321"
-     *                         razonSocial: "COMERCIAL XYZ SRL"
+     *                         businessName: "COMERCIAL XYZ SRL"
      *                         success: true
      *                         notifications: []
      *                         count: 0
@@ -978,14 +978,14 @@ class SunatController {
      *                 pattern: '^[0-9]{11}$'
      *                 description: RUC del cliente (para logging)
      *                 example: "20610789367"
-     *               secure_url:
+     *               secureUrl:
      *                 type: string
      *                 format: uri
      *                 description: URL segura a validar
      *                 example: "https://e-menu.sunat.gob.pe/cl-ti-itmenu/AutenticaMenuInternet.htm?state=..."
      *           example:
      *             ruc: "20610789367"
-     *             secure_url: "https://e-menu.sunat.gob.pe/cl-ti-itmenu/AutenticaMenuInternet.htm?state=rO0ABXNyABFq..."
+     *             secureUrl: "https://e-menu.sunat.gob.pe/cl-ti-itmenu/AutenticaMenuInternet.htm?state=rO0ABXNyABFq..."
      *     responses:
      *       200:
      *         description: Resultado de la validación

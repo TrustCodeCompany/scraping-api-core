@@ -378,7 +378,7 @@ class WebScraper {
 
         return {
             ruc: clientData.ruc,
-            razon_social: clientData.razon_social || 'N/A',
+            businessName: clientData.businessName || 'N/A',
             success: success,
             notifications: notifications,
             //url: url,
@@ -407,7 +407,7 @@ class WebScraper {
             console.log(`   📊 Procesando chunk ${i + 1}/${chunks.length} (${chunk.length} clientes)`);
 
             const chunkResults = await Promise.all(
-              chunk.map(client => this.scrapeFromUrlWithClientInfo(client.secure_url, client))
+              chunk.map(client => this.scrapeFromUrlWithClientInfo(client.secureUrl, client))
             );
 
             results.push(...chunkResults);

@@ -1,6 +1,6 @@
 export interface ClientInfo {
   ruc: string,
-  razon_social: string,
+  businessName: string,
   success: boolean,
   notifications: NotificationInfo[],
   //url: string,
@@ -15,6 +15,6 @@ export interface NotificationInfo {
 
 export interface ClientData {
   ruc: string,
-  razon_social: string,
-  secure_url: string
+  businessName: string,
+  secureUrl: string
 }
