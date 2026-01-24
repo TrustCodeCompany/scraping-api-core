@@ -11,7 +11,7 @@ const options: swaggerJsdoc.Options = {
       description: 'API para el scraping de información de SUNAT',
       contact: {
         name: 'API Support',
-        email: 'support@trustbalance.com'
+        email: 'trustcodesac@gmail.com'
       }
     },
     // ============================================
@@ -19,8 +19,8 @@ const options: swaggerJsdoc.Options = {
     // ============================================
     servers: [
       {
-        url: 'http://155.133.23.114:3000/api/v1',
-        description: 'Servidor de Producción (Contabo)',
+        url: 'https://trustbalance.site/api/v1',
+        description: 'Servidor de Producción',
       },
       {
         url: 'http://localhost:3000/api/v1',

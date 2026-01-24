@@ -4,6 +4,7 @@ import sunatRoutes from "@modules/sunat/sunatRoutes";
 import {errorHandler} from "@shared/middleware/errorHandler";
 import {logger} from "@utils/logger";
 import { setupSwagger } from "@shared/utils/swagger";
+import systemRoutes from "@modules/system/systemRoutes";
 
 const path = process.env.BASE_PATH || '/api/v1';
 const app = express();
@@ -56,6 +57,7 @@ app.get('/health', (req, res) => {
 setupSwagger(app);
 
 app.use(path + '/sunat', sunatRoutes);
+app.use(path + '/system', systemRoutes);
 
 // Error handling
 app.use(errorHandler);

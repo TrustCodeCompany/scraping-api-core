@@ -33,20 +33,28 @@ class SunatService extends BaseService {
      * Genera una URL segura de SUNAT para un cliente
      * USO: Cuando necesitas solo la URL sin hacer scraping
      */
-    async generateSecureUrlV2(client: Client) {
+    async generateSecureUrlV2(client: Client & { target?: 'notifications' | 'main' }) {
         return this.handleServiceOperation(async () => {
-            logger.info(`🔐 Generando URL segura para RUC: ${client.ruc_cliente}`);
+            const target = client.target || 'notifications';
+            logger.info(`🔐 Generando URL segura (${target}) para RUC: ${client.ruc}`);
             const portalSunat = new PortalSunat();
-            const result = await portalSunat.generateAndValidateLoginUrlV2(client);
+            
+            let result;
+            if (target === 'main') {
+                result = await portalSunat.generateAndValidateLoginUrlV3(client);
+            } else {
+                result = await portalSunat.generateAndValidateLoginUrlV2(client);
+            }
+
             if (!result.valid) {
                 // ❌ URL generada pero inválida
                 throw new Error(result.reason || 'URL generada es inválida');
             }
-            logger.info(`✅ URL válida generada para RUC: ${client.ruc_cliente}`);
+            logger.info(`✅ URL válida generada para RUC: ${client.ruc}`);
             return {
-                ruc: client.ruc_cliente,
-                razon_social: client.razon_s_cliente,
-                secure_url: result.url,
+                ruc: client.ruc,
+                businessName: client.businessName,
+                secureUrl: result.url,
                 reason: result.reason,
                 valid: result.valid,
             }
@@ -158,9 +166,9 @@ class SunatService extends BaseService {
 
             const urlPromises = clients.map(client =>
                 portalSunat.generateLoginUrl({
-                    ruc_cliente: client.ruc_cliente,
-                    usuario_s_cliente: client.usuario_s_cliente,
-                    clave_sol_cliente: client.clave_sol_cliente
+                    ruc: client.ruc,
+                    userSol: client.userSol,
+                    passwordSol: client.passwordSol
                 })
                     .then(url => ({
                         client: client,
@@ -209,8 +217,8 @@ class SunatService extends BaseService {
             const finalResults = urlResults.map((urlResult, index) => {
                 if (!urlResult.success || !urlResult.url) {
                     return {
-                        ruc: urlResult.client.ruc_cliente,
-                        razonSocial: urlResult.client.razon_s_cliente || 'N/A',
+                        ruc: urlResult.client.ruc,
+                        businessName: urlResult.client.businessName || 'N/A',
                         success: false,
                         error: urlResult.error,
                         notificaciones: [] as any[],
@@ -223,8 +231,8 @@ class SunatService extends BaseService {
                 const notificaciones = scrapingResults[validIndex] || [];
 
                 return {
-                    ruc: urlResult.client.ruc_cliente,
-                    razonSocial: urlResult.client.razon_s_cliente || 'N/A',
+                    ruc: urlResult.client.ruc,
+                    businessName: urlResult.client.businessName || 'N/A',
                     success: true,
                     notificaciones: notificaciones,
                     count: notificaciones.length
@@ -253,7 +261,7 @@ class SunatService extends BaseService {
                 },
                 results: finalResults,
                 failures: failedResults.length > 0 ? failedResults.map(f => ({
-                    ruc: f.client.ruc_cliente,
+                    ruc: f.client.ruc,
                     error: f.error
                 })) : []
             };
@@ -285,47 +293,25 @@ class SunatService extends BaseService {
 
             try {
                 const url = await portalSunat.generateLoginUrl({
-                    ruc_cliente: client.ruc_cliente,
-                    usuario_s_cliente: client.usuario_s_cliente,
-                    clave_sol_cliente: client.clave_sol_cliente
+                    ruc: client.ruc,
+                    userSol: client.userSol,
+                    passwordSol: client.passwordSol
                 });
 
                 return {
                     success: true,
-                    ruc: client.ruc_cliente,
+                    ruc: client.ruc,
                     url: url
                 };
             } catch (err: any) {
-                console.error(`Error generando URL para ${client.ruc_cliente}:`, err.message);
+                console.error(`Error generando URL para ${client.ruc}:`, err.message);
                 return {
                     success: false,
-                    ruc: client.ruc_cliente,
+                    ruc: client.ruc,
                     error: err.message
                 };
             }
         });
-    }
-
-    // ============================================
-    // MÉTODO 7: Status del scraper
-    // ============================================
-    /**
-     * Obtiene el estado actual del pool de browsers
-     * USO: Monitoring y debugging
-     */
-    getScraperStatus() {
-        return WebScraper.getStatus();
-    }
-
-    // ============================================
-    // MÉTODO 8: Shutdown del scraper
-    // ============================================
-    /**
-     * Cierra todos los browsers del pool
-     * ⚠️ SOLO llamar al apagar el servidor
-     */
-    async shutdownScraper() {
-        await WebScraper.shutdown();
     }
 
     // ============================================
@@ -347,13 +333,13 @@ class SunatService extends BaseService {
             for (const client of clients) {
                 try {
                     const url = await portalSunat.generateLoginUrl({
-                        ruc_cliente: client.ruc_cliente,
-                        usuario_s_cliente: client.usuario_s_cliente,
-                        clave_sol_cliente: client.clave_sol_cliente
+                        ruc: client.ruc,
+                        userSol: client.userSol,
+                        passwordSol: client.passwordSol
                     });
                     urls.push(url);
                 } catch (err: any) {
-                    console.error(`Error generando URL para ${client.ruc_cliente}:`, err.message);
+                    console.error(`Error generando URL para ${client.ruc}:`, err.message);
                     urls.push(null);
                 }
             }
@@ -409,17 +395,17 @@ class SunatService extends BaseService {
 
             const urlPromises = clients.map(client =>
                 portalSunat.generateAndValidateLoginUrlV2({
-                        ruc_cliente: client.ruc_cliente,
-                        usuario_s_cliente: client.usuario_s_cliente,
-                        clave_sol_cliente: client.clave_sol_cliente
+                        ruc: client.ruc,
+                        userSol: client.userSol,
+                        passwordSol: client.passwordSol
                 }).then(data => ({
-                        ruc: client.ruc_cliente,
-                        razonSocial: client.razon_s_cliente,
+                        ruc: client.ruc,
+                        businessName: client.businessName,
                         secure_url: data,
                         success: true
                 })).catch(error => ({
-                        ruc: client.ruc_cliente,
-                        razonSocial: client.razon_s_cliente,
+                        ruc: client.ruc,
+                        businessName: client.businessName,
                         secure_url: null,
                         success: false,
                         error: error.message
@@ -431,8 +417,8 @@ class SunatService extends BaseService {
             return urlResults.map(result => {
                 return {
                     ruc: result.ruc,
-                    razonSocial: result.razonSocial,
-                    secure_url: result.secure_url?.url,
+                    businessName: result.businessName,
+                    secureUrl: result.secure_url?.url,
                     reason: result.secure_url?.reason,
                     valid: result.secure_url?.valid,
                 }
@@ -484,22 +470,45 @@ class SunatService extends BaseService {
      */
     async validateUrlBeforeScraping(clientData: ClientData) {
         return this.handleServiceOperation(async () => {
-            const { ruc, secure_url, razon_social } = clientData;
+            const { ruc, secureUrl, businessName } = clientData;
 
             console.log(`🔍 Validando URL para RUC: ${ruc}`);
 
             const portalSunat = new PortalSunat();
-            const validation = await portalSunat.validateSecureUrl(secure_url);
+            const validation = await portalSunat.validateSecureUrlDeep(secureUrl);
 
             return {
                 valid: validation.valid,
                 ruc: ruc,
-                razon_social: razon_social,
+                businessName: businessName,
                 reason: validation.reason,
                 message: validation.valid
                   ? 'URL válida y lista para scraping'
                   : 'URL no válida para scraping'
             };
+        });
+    }
+
+    /**
+     *
+     */
+    async generateSecureUrlMain(client: Client) {
+        return this.handleServiceOperation(async () => {
+            logger.info(`🔐 Generando URL segura para RUC: ${client.ruc}`);
+            const portalSunat = new PortalSunat();
+            const result = await portalSunat.generateAndValidateLoginUrlV3(client);
+            if (!result.valid) {
+                // ❌ URL generada pero inválida
+                throw new Error(result.reason || 'URL generada es inválida');
+            }
+            logger.info(`✅ URL válida generada para RUC: ${client.ruc}`);
+            return {
+                ruc: client.ruc,
+                businessName: client.businessName,
+                secureUrl: result.url,
+                reason: result.reason,
+                valid: result.valid,
+            }
         });
     }
 }
