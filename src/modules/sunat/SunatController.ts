@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import sunatService from "@modules/sunat/SunatService";
+import {logger} from "@utils/logger";
 
 /**
  * @swagger
@@ -24,6 +25,246 @@ import sunatService from "@modules/sunat/SunatService";
  *         businessName:
  *           type: string
  *           description: Razón social del cliente
+ *     ValidateUrlRequest:
+ *       type: object
+ *       required:
+ *         - ruc
+ *         - secureUrl
+ *       properties:
+ *         ruc:
+ *           type: string
+ *           pattern: '^[0-9]{11}$'
+ *           description: RUC del cliente
+ *           example: "20610789367"
+ *         secureUrl:
+ *           type: string
+ *           format: uri
+ *           description: URL segura a validar
+ *           example: "https://e-menu.sunat.gob.pe/cl-ti-itmenu/AutenticaMenuInternet.htm?state=..."
+ *     ValidateUrlResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         data:
+ *           type: object
+ *           properties:
+ *             valid:
+ *               type: boolean
+ *               description: Indica si la URL es válida
+ *               example: true
+ *             ruc:
+ *               type: string
+ *               description: RUC del cliente validado
+ *               example: "20610789367"
+ *             message:
+ *               type: string
+ *               description: Mensaje descriptivo
+ *               example: "URL válida y lista para scraping"
+ *             reason:
+ *               type: string
+ *               description: Razón del error (solo si valid=false)
+ *               example: "URL expirada o parámetros de autenticación inválidos"
+ *     ProcessBatchRequest:
+ *       type: object
+ *       required:
+ *         - clients
+ *       properties:
+ *         clients:
+ *           type: array
+ *           minItems: 1
+ *           maxItems: 100
+ *           description: Lista de clientes con sus URLs seguras para procesar
+ *           items:
+ *             type: object
+ *             required:
+ *               - ruc
+ *               - secureUrl
+ *             properties:
+ *               ruc:
+ *                 type: string
+ *                 pattern: '^[0-9]{11}$'
+ *                 description: RUC del cliente
+ *                 example: "20123456789"
+ *               businessName:
+ *                 type: string
+ *                 description: Razón social del cliente
+ *                 example: "EMPRESA DEMO SAC"
+ *               secureUrl:
+ *                 type: string
+ *                 format: uri
+ *                 description: URL segura pre-generada para acceder al buzón
+ *                 example: "https://e-menu.sunat.gob.pe/..."
+ *     ProcessBatchResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         data:
+ *           type: object
+ *           properties:
+ *             totalClients:
+ *               type: integer
+ *               example: 50
+ *             processedClients:
+ *               type: integer
+ *               example: 48
+ *             failedClients:
+ *               type: integer
+ *               example: 2
+ *             clientsWithNotifications:
+ *               type: integer
+ *               example: 35
+ *             totalNotifications:
+ *               type: integer
+ *               example: 156
+ *             processedIn:
+ *               type: string
+ *               example: "45.32s"
+ *             averagePerClient:
+ *               type: string
+ *               example: "0.91s"
+ *             results:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   ruc:
+ *                     type: string
+ *                     example: "20123456789"
+ *                   businessName:
+ *                     type: string
+ *                     example: "EMPRESA DEMO SAC"
+ *                   success:
+ *                     type: boolean
+ *                     example: true
+ *                   notifications:
+ *                     type: array
+ *                     items:
+ *                       type: object
+ *                       properties:
+ *                         title:
+ *                           type: string
+ *                           example: "ASUNTO: Notificación de Resolución..."
+ *                         date:
+ *                           type: string
+ *                           example: "15/01/2025"
+ *                         read:
+ *                           type: integer
+ *                           example: 0
+ *                   count:
+ *                     type: integer
+ *                     example: 25
+ *     SecureUrlBatchRequest:
+ *       type: object
+ *       required:
+ *         - clients
+ *       properties:
+ *         clients:
+ *           type: array
+ *           minItems: 1
+ *           maxItems: 100
+ *           description: Lista de clientes para generar sus URLs
+ *           items:
+ *             $ref: '#/components/schemas/Client'
+ *     SecureUrlBatchResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         data:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               ruc:
+ *                 type: string
+ *                 description: RUC del cliente
+ *                 example: "20123456789"
+ *               businessName:
+ *                 type: string
+ *                 description: Razón social del cliente
+ *                 example: "EMPRESA DEMO SAC"
+ *               secureUrl:
+ *                 type: string
+ *                 format: uri
+ *                 description: URL segura generada (null si falló)
+ *                 example: "https://e-menu.sunat.gob.pe/..."
+ *               valid:
+ *                 type: boolean
+ *                 description: Indica si la generación fue exitosa y la URL es válida
+ *                 example: true
+ *               reason:
+ *                 type: string
+ *                 description: Motivo del fallo (solo si valid=false)
+ *                 example: "Credenciales incorrectas"
+ *     SecureUrlRequest:
+ *       allOf:
+ *         - $ref: '#/components/schemas/Client'
+ *         - type: object
+ *           properties:
+ *             target:
+ *               type: string
+ *               enum: [notifications, main]
+ *               default: notifications
+ *               description: |
+ *                 Destino de la URL:
+ *                 - `notifications`: Acceso directo al Buzón Electrónico (default).
+ *                 - `main`: Acceso al Menú Principal de SUNAT.
+ *     SecureUrlResponse:
+ *       type: object
+ *       properties:
+ *         status:
+ *           type: string
+ *           example: "success"
+ *         data:
+ *           type: object
+ *           properties:
+ *             ruc:
+ *               type: string
+ *               description: RUC del cliente
+ *               example: "20123456789"
+ *             businessName:
+ *               type: string
+ *               description: Razón social del cliente
+ *               example: "EMPRESA DEMO SAC"
+ *             secureUrl:
+ *               type: string
+ *               format: uri
+ *               description: URL segura generada
+ *               example: "https://e-menu.sunat.gob.pe/..."
+ *             reason:
+ *               type: string
+ *               description: Motivo del fallo (si aplica)
+ *               example: ""
+ *             valid:
+ *               type: boolean
+ *               description: Indica si la URL es válida
+ *               example: true
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         errors:
+ *           type: object
+ *           properties:
+ *             message:
+ *               oneOf:
+ *                 - type: string
+ *                 - type: array
+ *                   items:
+ *                     type: string
+ *               description: Mensaje de error (string) o lista de errores (array de strings)
+ *               example: "su cuenta no esta autorizada"
+ *             timeStamp:
+ *               type: string
+ *               format: date-time
+ *               example: "2026-01-24T00:17:09.913Z"
  */
 class SunatController {
 
@@ -97,7 +338,7 @@ class SunatController {
      *   post:
      *     summary: Genera URL segura de SUNAT con validación automática
      *     description: |
-     *       Crea una URL autenticada para acceder al Buzón Electrónico SOL del cliente.
+     *       Crea una URL autenticada para acceder al Buzón Electrónico SOL del cliente o al Menú Principal.
      *
      *       **IMPORTANTE:** Valida automáticamente las credenciales antes de retornar la URL.
      *       Si las credenciales son incorrectas, retornará un error 400.
@@ -113,76 +354,69 @@ class SunatController {
      *       content:
      *         application/json:
      *           schema:
-     *             $ref: '#/components/schemas/Client'
+     *             $ref: '#/components/schemas/SecureUrlRequest'
      *           example:
      *             ruc: "20123456789"
      *             userSol: "USERTEST"
      *             passwordSol: "password123"
      *             businessName: "EMPRESA DEMO SAC"
+     *             target: "notifications"
      *     responses:
      *       200:
      *         description: URL segura generada y validada con éxito
      *         content:
      *           application/json:
      *             schema:
-     *               type: object
-     *               properties:
-     *                 status:
-     *                   type: string
-     *                   example: "success"
-     *                 data:
-     *                   type: object
-     *                   properties:
-     *                     url:
-     *                       type: string
-     *                       format: uri
-     *                       description: URL segura generada y validada
-     *                       example: "https://ww1.sunat.gob.pe/..."
-     *                     ruc:
-     *                       type: string
-     *                       example: "20123456789"
+     *               $ref: '#/components/schemas/SecureUrlResponse'
      *             example:
      *               status: "success"
      *               data:
-     *                 url: "https://api-seguridad.sunat.gob.pe/v1/clientessol/..."
      *                 ruc: "20123456789"
+     *                 businessName: "EMPRESA DEMO SAC"
+     *                 secureUrl: "https://api-seguridad.sunat.gob.pe/v1/clientessol/..."
+     *                 reason: ""
+     *                 valid: true
      *       400:
      *         description: Credenciales inválidas o URL expirada
      *         content:
      *           application/json:
      *             schema:
-     *               type: object
-     *               properties:
-     *                 status:
-     *                   type: string
-     *                   example: "error"
-     *                 error:
-     *                   type: string
+     *               $ref: '#/components/schemas/ErrorResponse'
      *             examples:
      *               credenciales_invalidas:
      *                 summary: Credenciales incorrectas
      *                 value:
-     *                   status: "error"
-     *                   error: "Credenciales incorrectas"
+     *                   success: false
+     *                   errors:
+     *                     message: "Credenciales incorrectas"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      *               url_expirada:
      *                 summary: URL expirada
      *                 value:
-     *                   status: "error"
-     *                   error: "URL expirada o parámetros de autenticación inválidos"
+     *                   success: false
+     *                   errors:
+     *                     message: "URL expirada o parámetros de autenticación inválidos"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      *               servicio_no_disponible:
      *                 summary: SUNAT no disponible
      *                 value:
-     *                   status: "error"
-     *                   error: "Servicio SUNAT no disponible"
+     *                   success: false
+     *                   errors:
+     *                     message: "Servicio SUNAT no disponible"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      *       500:
      *         description: Error interno del servidor
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
      */
     static async secureUrlV2(req: Request, res: Response, next: NextFunction) {
         try {
-            const url = await sunatService.generateSecureUrlV2(req.body)
+            const result = await sunatService.generateSecureUrlV2(req.body)
             res.json({
                 status: 'success',
-                data: url
+                data: result
             });
         } catch (error: any) {
 
@@ -191,8 +425,11 @@ class SunatController {
               error.message.includes('expirada') ||
               error.message.includes('incorrectas')) {
                 return res.status(400).json({
-                    status: 'error',
-                    error: error.message
+                    success: false,
+                    errors: {
+                        message: error.message,
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
             next(error);
@@ -239,7 +476,7 @@ class SunatController {
     }
 
     /**
-     * @swagger
+     * hidden-swagger
      * /sunat/consultation-ruc:
      *   post:
      *     summary: Consulta información pública de un RUC
@@ -384,21 +621,30 @@ class SunatController {
             if (!urls || !Array.isArray(urls)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Se requiere un array de URLs'
+                    errors: {
+                        message: 'Se requiere un array de URLs',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
             if (urls.length === 0) {
                 return res.status(400).json({
                     success: false,
-                    error: 'El array de URLs está vacío'
+                    errors: {
+                        message: 'El array de URLs está vacío',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
             if (urls.length > 100) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Máximo 100 URLs por batch'
+                    errors: {
+                        message: 'Máximo 100 URLs por batch',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
@@ -440,7 +686,10 @@ class SunatController {
             if (!url) {
                 return res.status(400).json({
                     success: false,
-                    error: 'URL es requerida'
+                    errors: {
+                        message: 'URL es requerida',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
@@ -478,7 +727,10 @@ class SunatController {
             if (!ruc || !userSol || !passwordSol) {
                 return res.status(400).json({
                     success: false,
-                    error: 'ruc_cliente, usuario_s_cliente y clave_sol_cliente son requeridos'
+                    errors: {
+                        message: 'ruc_cliente, usuario_s_cliente y clave_sol_cliente son requeridos',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
@@ -491,58 +743,10 @@ class SunatController {
             console.error('❌ Error en /secure-url:', error);
             res.status(500).json({
                 success: false,
-                error: 'Error generando URL',
-                message: error.message
-            });
-        }
-    }
-
-    /**
-     * @swagger
-     * /sunat/sunat-status:
-     *   get:
-     *     summary: Obtiene el estado actual del scraper
-     *     tags: [Sunat]
-     *     responses:
-     *       200:
-     *         description: Estado del scraper
-     */
-    static async sunatStatus(req: Request, res: Response, next: NextFunction) {
-        try {
-            const status = sunatService.getScraperStatus();
-            res.json({
-                success: true,
-                ...status
-            });
-        } catch (error: any) {
-            res.status(500).json({
-                success: false,
-                error: error.message
-            });
-        }
-    }
-
-    /**
-     * @swagger
-     * /sunat/sunat-shutdown:
-     *   get:
-     *     summary: Cierra todos los navegadores del scraper
-     *     tags: [Sunat]
-     *     responses:
-     *       200:
-     *         description: Scraper cerrado
-     */
-    static async shutdown(req: Request, res: Response, next: NextFunction) {
-        try {
-            await sunatService.shutdownScraper();
-            res.json({
-                success: true,
-                message: 'Scraper cerrado correctamente'
-            });
-        } catch (error: any) {
-            res.status(500).json({
-                success: false,
-                error: error.message
+                errors: {
+                    message: error.message || 'Error generando URL',
+                    timeStamp: new Date().toISOString()
+                }
             });
         }
     }
@@ -563,17 +767,7 @@ class SunatController {
      *       content:
      *         application/json:
      *           schema:
-     *             type: object
-     *             required:
-     *               - clients
-     *             properties:
-     *               clients:
-     *                 type: array
-     *                 minItems: 1
-     *                 maxItems: 100
-     *                 description: Lista de clientes para generar sus URLs
-     *                 items:
-     *                   $ref: '#/components/schemas/Client'
+     *             $ref: '#/components/schemas/SecureUrlBatchRequest'
      *           example:
      *             clients:
      *               - ruc: "20123456789"
@@ -590,37 +784,7 @@ class SunatController {
      *         content:
      *           application/json:
      *             schema:
-     *               type: object
-     *               properties:
-     *                 status:
-     *                   type: string
-     *                   example: "success"
-     *                 data:
-     *                   type: array
-     *                   items:
-     *                     type: object
-     *                     properties:
-     *                       ruc:
-     *                         type: string
-     *                         description: RUC del cliente
-     *                         example: "20123456789"
-     *                       businessName:
-     *                         type: string
-     *                         description: Razón social del cliente
-     *                         example: "EMPRESA DEMO SAC"
-     *                       secureUrl:
-     *                         type: string
-     *                         format: uri
-     *                         description: URL segura generada (null si falló)
-     *                         example: "https://e-menu.sunat.gob.pe/..."
-     *                       valid:
-     *                         type: boolean
-     *                         description: Indica si la generación fue exitosa y la URL es válida
-     *                         example: true
-     *                       reason:
-     *                         type: string
-     *                         description: Motivo del fallo (solo si valid=false)
-     *                         example: "Credenciales incorrectas"
+     *               $ref: '#/components/schemas/SecureUrlBatchResponse'
      *             example:
      *               status: "success"
      *               data:
@@ -636,31 +800,78 @@ class SunatController {
      *                   reason: "Credenciales incorrectas"
      *       400:
      *         description: Error de validación en la petición (ej. más de 100 clientes o array vacío)
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               invalid_array:
+     *                 summary: No es un array
+     *                 value:
+     *                   success: false
+     *                   errors:
+     *                     message: "Se requiere un array de URLs"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
+     *               empty_array:
+     *                 summary: Array vacío
+     *                 value:
+     *                   success: false
+     *                   errors:
+     *                     message: "El array de URLs está vacío"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
+     *               too_many_clients:
+     *                 summary: Límite excedido
+     *                 value:
+     *                   success: false
+     *                   errors:
+     *                     message: "Máximo 100 URLs por batch"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      *       500:
      *         description: Error interno del servidor
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               server_error:
+     *                 summary: Error de servidor
+     *                 value:
+     *                   success: false
+     *                   errors:
+     *                     message: "Error generando URL"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      */
-    static async secureUrlClients(req: Request, res: Response, next: NextFunction) {
+    static async secureUrlBatch(req: Request, res: Response, next: NextFunction) {
         try {
             const { clients } = req.body;
 
             if (!clients || !Array.isArray(clients)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Se requiere un array de URLs'
+                    errors: {
+                        message: 'Se requiere un array de URLs',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
             if (clients.length === 0) {
                 return res.status(400).json({
                     success: false,
-                    error: 'El array de URLs está vacío'
+                    errors: {
+                        message: 'El array de URLs está vacío',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
             if (clients.length > 100) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Máximo 100 URLs por batch'
+                    errors: {
+                        message: 'Máximo 100 URLs por batch',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
@@ -672,11 +883,13 @@ class SunatController {
             });
 
         } catch (error: any) {
-            console.error('❌ Error en /secureUrlClients:', error);
+            logger.error('❌ Error en /secureUrlBatch:', error);
             res.status(500).json({
                 success: false,
-                error: 'Error generando URL',
-                message: error.message
+                errors: {
+                    message: error.message || 'Error generando URL',
+                    timeStamp: new Date().toISOString()
+                }
             });
         }
     }
@@ -685,7 +898,7 @@ class SunatController {
      * @swagger
      * /sunat/process-batch:
      *   post:
-     *     summary: Procesa un lote de clientes y extrae sus notificaciones de SUNAT
+     *     summary: Procesa un lote de clientes y extrae sus notificaciones de SUNAT (V2)
      *     description: |
      *       Realiza scraping en paralelo de las notificaciones del Buzón Electrónico SOL de múltiples clientes.
      *       - Procesa hasta 100 clientes por batch
@@ -699,221 +912,83 @@ class SunatController {
      *       content:
      *         application/json:
      *           schema:
-     *             type: object
-     *             required:
-     *               - clients
-     *             properties:
-     *               clients:
-     *                 type: array
-     *                 minItems: 1
-     *                 maxItems: 100
-     *                 description: Array de clientes a procesar (máximo 100)
-     *                 items:
-     *                   type: object
-     *                   required:
-     *                     - ruc
-     *                     - secureUrl
-     *                   properties:
-     *                     ruc:
-     *                       type: string
-     *                       pattern: '^[0-9]{11}$'
-     *                       description: RUC del cliente (11 dígitos)
-     *                       example: "20123456789"
-     *                     businessName:
-     *                       type: string
-     *                       description: Razón social del cliente
-     *                       example: "EMPRESA DEMO SAC"
-     *                     secureUrl:
-     *                       type: string
-     *                       format: uri
-     *                       description: URL segura pre-generada para acceder al buzón del cliente
-     *                       example: "https://ww1.sunat.gob.pe/ol-ti-itconsvalicpe/Login.aspx?..."
-     *           examples:
-     *             single_client:
-     *               summary: Un solo cliente
-     *               value:
-     *                 clients:
-     *                   - ruc: "20123456789"
-     *                     businessName: "EMPRESA DEMO SAC"
-     *                     secureUrl: "https://ww1.sunat.gob.pe/ol-ti-itconsvalicpe/Login.aspx?..."
-     *             multiple_clients:
-     *               summary: Múltiples clientes
-     *               value:
-     *                 clients:
-     *                   - ruc: "20123456789"
-     *                     businessName: "EMPRESA DEMO SAC"
-     *                     secureUrl: "https://ww1.sunat.gob.pe/..."
-     *                   - ruc: "20987654321"
-     *                     businessName: "COMERCIAL XYZ SRL"
-     *                     secureUrl: "https://ww1.sunat.gob.pe/..."
+     *             $ref: '#/components/schemas/ProcessBatchRequest'
+     *           example:
+     *             clients:
+     *               - ruc: "20123456789"
+     *                 businessName: "EMPRESA DEMO SAC"
+     *                 secureUrl: "https://ww1.sunat.gob.pe/ol-ti-itconsvalicpe/Login.aspx?..."
+     *               - ruc: "20987654321"
+     *                 businessName: "COMERCIAL XYZ SRL"
+     *                 secureUrl: "https://ww1.sunat.gob.pe/..."
      *     responses:
      *       200:
      *         description: Batch procesado exitosamente
      *         content:
      *           application/json:
      *             schema:
-     *               type: object
-     *               properties:
-     *                 status:
-     *                   type: string
-     *                   enum: [success]
-     *                   example: "success"
-     *                 data:
-     *                   type: object
-     *                   properties:
-     *                     success:
-     *                       type: boolean
-     *                       description: Indica si el batch se procesó correctamente
-     *                       example: true
-     *                     totalClients:
-     *                       type: integer
-     *                       description: Total de clientes recibidos
-     *                       example: 50
-     *                     processedClients:
-     *                       type: integer
-     *                       description: Clientes procesados exitosamente
-     *                       example: 48
-     *                     failedClients:
-     *                       type: integer
-     *                       description: Clientes que fallaron durante el scraping
-     *                       example: 2
-     *                     clientsWithNotifications:
-     *                       type: integer
-     *                       description: Clientes que tienen notificaciones
-     *                       example: 35
-     *                     totalNotifications:
-     *                       type: integer
-     *                       description: Total de notificaciones encontradas
-     *                       example: 156
-     *                     processedIn:
-     *                       type: string
-     *                       description: Tiempo total de procesamiento
-     *                       example: "45.32s"
-     *                     averagePerClient:
-     *                       type: string
-     *                       description: Tiempo promedio por cliente
-     *                       example: "0.91s"
-     *                     results:
-     *                       type: array
-     *                       description: Resultados detallados por cada cliente
-     *                       items:
-     *                         type: object
-     *                         properties:
-     *                           ruc:
-     *                             type: string
-     *                             description: RUC del cliente
-     *                             example: "20123456789"
-     *                           businessName:
-     *                             type: string
-     *                             description: Razón social del cliente
-     *                             example: "EMPRESA DEMO SAC"
-     *                           success:
-     *                             type: boolean
-     *                             description: Indica si el scraping fue exitoso
-     *                             example: true
-     *                           notifications:
-     *                             type: array
-     *                             description: Lista de notificaciones encontradas
-     *                             items:
-     *                               type: object
-     *                               properties:
-     *                                 title:
-     *                                   type: string
-     *                                   description: Asunto de la notificación
-     *                                   example: "ASUNTO: Notificación de Resolución de Ejecución Coactiva N° 143-006-0409566"
-     *                                 date:
-     *                                   type: string
-     *                                   description: Fecha de publicación de la notificación
-     *                                   example: "15/01/2025"
-     *                                 read:
-     *                                   type: integer
-     *                                   description: Estado de lectura (0=no leído, 1=leído)
-     *                                   example: 0
-     *                           count:
-     *                             type: integer
-     *                             description: Cantidad de notificaciones del cliente
-     *                             example: 25
-     *             examples:
-     *               success_response:
-     *                 summary: Respuesta exitosa
-     *                 value:
-     *                   status: "success"
-     *                   data:
+     *               $ref: '#/components/schemas/ProcessBatchResponse'
+     *             example:
+     *               status: "success"
+     *               data:
+     *                 totalClients: 50
+     *                 processedClients: 48
+     *                 failedClients: 2
+     *                 clientsWithNotifications: 35
+     *                 totalNotifications: 156
+     *                 processedIn: "45.32s"
+     *                 averagePerClient: "0.91s"
+     *                 results:
+     *                   - ruc: "20123456789"
+     *                     businessName: "EMPRESA DEMO SAC"
      *                     success: true
-     *                     totalClients: 50
-     *                     processedClients: 48
-     *                     failedClients: 2
-     *                     clientsWithNotifications: 35
-     *                     totalNotifications: 156
-     *                     processedIn: "45.32s"
-     *                     averagePerClient: "0.91s"
-     *                     results:
-     *                       - ruc: "20123456789"
-     *                         businessName: "EMPRESA DEMO SAC"
-     *                         success: true
-     *                         notifications:
-     *                           - title: "ASUNTO: Notificación de Resolución..."
-     *                             date: "15/01/2025"
-     *                             read: 0
-     *                           - title: "ASUNTO: Notificación de Orden de Pago..."
-     *                             date: "14/01/2025"
-     *                             read: 1
-     *                         count: 25
-     *                       - ruc: "20987654321"
-     *                         businessName: "COMERCIAL XYZ SRL"
-     *                         success: true
-     *                         notifications: []
-     *                         count: 0
+     *                     notifications:
+     *                       - title: "ASUNTO: Notificación de Resolución..."
+     *                         date: "15/01/2025"
+     *                         read: 0
+     *                     count: 25
      *       400:
      *         description: Error de validación en los datos enviados
      *         content:
      *           application/json:
      *             schema:
-     *               type: object
-     *               properties:
-     *                 success:
-     *                   type: boolean
-     *                   example: false
-     *                 error:
-     *                   type: string
-     *                   description: Descripción del error
+     *               $ref: '#/components/schemas/ErrorResponse'
      *             examples:
      *               empty_array:
      *                 summary: Array vacío
      *                 value:
      *                   success: false
-     *                   error: "El array de clientes está vacío"
+     *                   errors:
+     *                     message: "El array de URLs está vacío"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      *               invalid_type:
      *                 summary: Tipo de dato inválido
      *                 value:
      *                   success: false
-     *                   error: "Se requiere un array de clientes válido"
+     *                   errors:
+     *                     message: "Se requiere un array de URLs"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      *               exceeded_limit:
      *                 summary: Límite excedido
      *                 value:
      *                   success: false
-     *                   error: "Máximo 100 clientes por batch"
-     *               invalid_structure:
-     *                 summary: Estructura inválida
-     *                 value:
-     *                   success: false
-     *                   error: "5 cliente(s) con datos inválidos (falta ruc o secure_url)"
+     *                   errors:
+     *                     message: "Máximo 100 URLs por batch"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      *       500:
      *         description: Error interno del servidor
      *         content:
      *           application/json:
      *             schema:
-     *               type: object
-     *               properties:
-     *                 success:
-     *                   type: boolean
-     *                   example: false
-     *                 error:
-     *                   type: string
-     *                   example: "Error interno al procesar el batch"
-     *                 details:
-     *                   type: string
-     *                   description: Detalles técnicos del error
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               server_error:
+     *                 summary: Error de servidor
+     *                 value:
+     *                   success: false
+     *                   errors:
+     *                     message: "Error interno al procesar el batch"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      */
     static async processBatchV2(req: Request, res: Response, next: NextFunction) {
         try {
@@ -923,21 +998,30 @@ class SunatController {
             if (!clients || !Array.isArray(clients)) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Se requiere un array de URLs'
+                    errors: {
+                        message: 'Se requiere un array de URLs',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
             if (clients.length === 0) {
                 return res.status(400).json({
                     success: false,
-                    error: 'El array de URLs está vacío'
+                    errors: {
+                        message: 'El array de URLs está vacío',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
             if (clients.length > 100) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Máximo 100 URLs por batch'
+                    errors: {
+                        message: 'Máximo 100 URLs por batch',
+                        timeStamp: new Date().toISOString()
+                    }
                 });
             }
 
@@ -956,7 +1040,7 @@ class SunatController {
      * @swagger
      * /sunat/validate-url:
      *   post:
-     *     summary: Valida si una URL segura de SUNAT es válida
+     *     summary: Verifica si una URL segura de SUNAT es válida
      *     description: |
      *       Verifica que una URL generada sea válida y no haya expirado antes de realizar scraping.
      *       - Descarga el HTML de la URL
@@ -968,54 +1052,14 @@ class SunatController {
      *       content:
      *         application/json:
      *           schema:
-     *             type: object
-     *             required:
-     *               - ruc
-     *               - secure_url
-     *             properties:
-     *               ruc:
-     *                 type: string
-     *                 pattern: '^[0-9]{11}$'
-     *                 description: RUC del cliente (para logging)
-     *                 example: "20610789367"
-     *               secureUrl:
-     *                 type: string
-     *                 format: uri
-     *                 description: URL segura a validar
-     *                 example: "https://e-menu.sunat.gob.pe/cl-ti-itmenu/AutenticaMenuInternet.htm?state=..."
-     *           example:
-     *             ruc: "20610789367"
-     *             secureUrl: "https://e-menu.sunat.gob.pe/cl-ti-itmenu/AutenticaMenuInternet.htm?state=rO0ABXNyABFq..."
+     *             $ref: '#/components/schemas/ValidateUrlRequest'
      *     responses:
      *       200:
      *         description: Resultado de la validación
      *         content:
      *           application/json:
      *             schema:
-     *               type: object
-     *               properties:
-     *                 status:
-     *                   type: string
-     *                   example: "success"
-     *                 data:
-     *                   type: object
-     *                   properties:
-     *                     valid:
-     *                       type: boolean
-     *                       description: Indica si la URL es válida
-     *                       example: true
-     *                     ruc:
-     *                       type: string
-     *                       description: RUC del cliente validado
-     *                       example: "20610789367"
-     *                     message:
-     *                       type: string
-     *                       description: Mensaje descriptivo
-     *                       example: "URL válida y lista para scraping"
-     *                     reason:
-     *                       type: string
-     *                       description: Razón del error (solo si valid=false)
-     *                       example: "URL expirada o parámetros de autenticación inválidos"
+     *               $ref: '#/components/schemas/ValidateUrlResponse'
      *             examples:
      *               url_valida:
      *                 summary: URL válida
@@ -1039,14 +1083,29 @@ class SunatController {
      *         content:
      *           application/json:
      *             schema:
-     *               type: object
-     *               properties:
-     *                 success:
-     *                   type: boolean
-     *                   example: false
-     *                 error:
-     *                   type: string
-     *                   example: "Se requiere ruc y secure_url"
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               missing_params:
+     *                 summary: Faltan parámetros
+     *                 value:
+     *                   success: false
+     *                   errors:
+     *                     message: "Se requiere ruc y secure_url"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
+     *       500:
+     *         description: Error interno del servidor
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               server_error:
+     *                 summary: Error de servidor
+     *                 value:
+     *                   success: false
+     *                   errors:
+     *                     message: "Error interno al validar la URL"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
      */
     static async validateURL(req: Request, res: Response, next: NextFunction) {
 
@@ -1058,6 +1117,79 @@ class SunatController {
                 data: result
             });
         } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * hidden-swagger
+     * /sunat/secure-url-main:
+     *   post:
+     *     summary: Genera URL segura de SUNAT apuntando al Menú Principal
+     *     description: |
+     *       Crea una URL autenticada para acceder al Menú Principal de SUNAT.
+     *       Valida automáticamente las credenciales antes de retornar la URL.
+     *     tags: [Sunat]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/Client'
+     *           example:
+     *             ruc: "20123456789"
+     *             userSol: "USERTEST"
+     *             passwordSol: "password123"
+     *             businessName: "EMPRESA DEMO SAC"
+     *     responses:
+     *       200:
+     *         description: URL segura generada y validada con éxito
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/SecureUrlResponse'
+     *             example:
+     *               status: "success"
+     *               data:
+     *                 ruc: "20123456789"
+     *                 businessName: "EMPRESA DEMO SAC"
+     *                 secureUrl: "https://api-seguridad.sunat.gob.pe/v1/clientessol/..."
+     *                 reason: ""
+     *                 valid: true
+     *       400:
+     *         description: Credenciales inválidas o URL expirada
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *       500:
+     *         description: Error interno del servidor
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     */
+    static async secureUrlMain(req: Request, res: Response, next: NextFunction) {
+        try {
+            const result = await sunatService.generateSecureUrlMain(req.body)
+            res.json({
+                status: 'success',
+                data: result
+            });
+        } catch (error: any) {
+
+            // ✅ Si la URL es inválida, retornar 400 en lugar de 500
+            if (error.message.includes('inválida') ||
+              error.message.includes('expirada') ||
+              error.message.includes('incorrectas')) {
+                return res.status(400).json({
+                    success: false,
+                    errors: {
+                        message: error.message,
+                        timeStamp: new Date().toISOString()
+                    }
+                });
+            }
             next(error);
         }
     }

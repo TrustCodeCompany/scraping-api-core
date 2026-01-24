@@ -33,11 +33,19 @@ class SunatService extends BaseService {
      * Genera una URL segura de SUNAT para un cliente
      * USO: Cuando necesitas solo la URL sin hacer scraping
      */
-    async generateSecureUrlV2(client: Client) {
+    async generateSecureUrlV2(client: Client & { target?: 'notifications' | 'main' }) {
         return this.handleServiceOperation(async () => {
-            logger.info(`🔐 Generando URL segura para RUC: ${client.ruc}`);
+            const target = client.target || 'notifications';
+            logger.info(`🔐 Generando URL segura (${target}) para RUC: ${client.ruc}`);
             const portalSunat = new PortalSunat();
-            const result = await portalSunat.generateAndValidateLoginUrlV2(client);
+            
+            let result;
+            if (target === 'main') {
+                result = await portalSunat.generateAndValidateLoginUrlV3(client);
+            } else {
+                result = await portalSunat.generateAndValidateLoginUrlV2(client);
+            }
+
             if (!result.valid) {
                 // ❌ URL generada pero inválida
                 throw new Error(result.reason || 'URL generada es inválida');
@@ -307,28 +315,6 @@ class SunatService extends BaseService {
     }
 
     // ============================================
-    // MÉTODO 7: Status del scraper
-    // ============================================
-    /**
-     * Obtiene el estado actual del pool de browsers
-     * USO: Monitoring y debugging
-     */
-    getScraperStatus() {
-        return WebScraper.getStatus();
-    }
-
-    // ============================================
-    // MÉTODO 8: Shutdown del scraper
-    // ============================================
-    /**
-     * Cierra todos los browsers del pool
-     * ⚠️ SOLO llamar al apagar el servidor
-     */
-    async shutdownScraper() {
-        await WebScraper.shutdown();
-    }
-
-    // ============================================
     // MÉTODOS DEPRECADOS (Para referencia)
     // ❌ NO USAR - Solo mantenidos por compatibilidad
     // ============================================
@@ -500,6 +486,29 @@ class SunatService extends BaseService {
                   ? 'URL válida y lista para scraping'
                   : 'URL no válida para scraping'
             };
+        });
+    }
+
+    /**
+     *
+     */
+    async generateSecureUrlMain(client: Client) {
+        return this.handleServiceOperation(async () => {
+            logger.info(`🔐 Generando URL segura para RUC: ${client.ruc}`);
+            const portalSunat = new PortalSunat();
+            const result = await portalSunat.generateAndValidateLoginUrlV3(client);
+            if (!result.valid) {
+                // ❌ URL generada pero inválida
+                throw new Error(result.reason || 'URL generada es inválida');
+            }
+            logger.info(`✅ URL válida generada para RUC: ${client.ruc}`);
+            return {
+                ruc: client.ruc,
+                businessName: client.businessName,
+                secureUrl: result.url,
+                reason: result.reason,
+                valid: result.valid,
+            }
         });
     }
 }

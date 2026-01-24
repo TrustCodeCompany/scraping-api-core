@@ -7,8 +7,10 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
 
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
-    status: 'error',
-    statusCode,
-    message: err.message || 'Internal Server Error'
+    success: false,
+    errors: {
+      message: err.message || 'Internal Server Error',
+      timeStamp: new Date().toISOString()
+    }
   });
 };

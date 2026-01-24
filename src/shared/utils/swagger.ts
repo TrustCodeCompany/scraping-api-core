@@ -11,7 +11,7 @@ const options: swaggerJsdoc.Options = {
       description: 'API para el scraping de información de SUNAT',
       contact: {
         name: 'API Support',
-        email: 'support@trustbalance.com'
+        email: 'trustcodesac@gmail.com'
       }
     },
     // ============================================
