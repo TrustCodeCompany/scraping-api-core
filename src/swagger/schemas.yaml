@@ -1,0 +1,261 @@
+components:
+  schemas:
+    Client:
+      type: object
+      required:
+        - ruc
+        - userSol
+        - passwordSol
+      properties:
+        ruc:
+          type: string
+          description: RUC del cliente
+        userSol:
+          type: string
+          description: Usuario SOL del cliente
+        passwordSol:
+          type: string
+          description: Clave SOL del cliente
+        businessName:
+          type: string
+          description: Razón social del cliente
+    ValidateUrlRequest:
+      type: object
+      required:
+        - ruc
+        - secureUrl
+      properties:
+        ruc:
+          type: string
+          pattern: '^[0-9]{11}$'
+          description: RUC del cliente
+          example: "20610789367"
+        secureUrl:
+          type: string
+          format: uri
+          description: URL segura a validar
+          example: "https:e-menu.sunat.gob.pecl-ti-itmenuAutenticaMenuInternet.htm?state=..."
+    ValidateUrlResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: object
+          properties:
+            valid:
+              type: boolean
+              description: Indica si la URL es válida
+              example: true
+            ruc:
+              type: string
+              description: RUC del cliente validado
+              example: "20610789367"
+            message:
+              type: string
+              description: Mensaje descriptivo
+              example: "URL válida y lista para scraping"
+            reason:
+              type: string
+              description: Razón del error (solo si valid=false)
+              example: "URL expirada o parámetros de autenticación inválidos"
+    ProcessBatchRequest:
+      type: object
+      required:
+        - clients
+      properties:
+        clients:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: Lista de clientes con sus URLs seguras para procesar
+          items:
+            type: object
+            required:
+              - ruc
+              - secureUrl
+            properties:
+              ruc:
+                type: string
+                pattern: '^[0-9]{11}$'
+                description: RUC del cliente
+                example: "20123456789"
+              businessName:
+                type: string
+                description: Razón social del cliente
+                example: "EMPRESA DEMO SAC"
+              secureUrl:
+                type: string
+                format: uri
+                description: URL segura pre-generada para acceder al buzón
+                example: "https:e-menu.sunat.gob.pe..."
+    ProcessBatchResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: object
+          properties:
+            totalClients:
+              type: integer
+              example: 50
+            processedClients:
+              type: integer
+              example: 48
+            failedClients:
+              type: integer
+              example: 2
+            clientsWithNotifications:
+              type: integer
+              example: 35
+            totalNotifications:
+              type: integer
+              example: 156
+            processedIn:
+              type: string
+              example: "45.32s"
+            averagePerClient:
+              type: string
+              example: "0.91s"
+            results:
+              type: array
+              items:
+                type: object
+                properties:
+                  ruc:
+                    type: string
+                    example: "20123456789"
+                  businessName:
+                    type: string
+                    example: "EMPRESA DEMO SAC"
+                  success:
+                    type: boolean
+                    example: true
+                  notifications:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                          example: "ASUNTO: Notificación de Resolución..."
+                        date:
+                          type: string
+                          example: "15012025"
+                        read:
+                          type: integer
+                          example: 0
+                  count:
+                    type: integer
+                    example: 25
+    SecureUrlBatchRequest:
+      type: object
+      required:
+        - clients
+      properties:
+        clients:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: Lista de clientes para generar sus URLs
+          items:
+            $ref: '#components/schemas/Client'
+    SecureUrlBatchResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              ruc:
+                type: string
+                description: RUC del cliente
+                example: "20123456789"
+              businessName:
+                type: string
+                description: Razón social del cliente
+                example: "EMPRESA DEMO SAC"
+              secureUrl:
+                type: string
+                format: uri
+                description: URL segura generada (null si falló)
+                example: "https:e-menu.sunat.gob.pe..."
+              valid:
+                type: boolean
+                description: Indica si la generación fue exitosa y la URL es válida
+                example: true
+              reason:
+                type: string
+                description: Motivo del fallo (solo si valid=false)
+                example: "Credenciales incorrectas"
+    SecureUrlRequest:
+      allOf:
+        - $ref: '#components/schemas/Client'
+        - type: object
+          properties:
+            target:
+              type: string
+              enum: [ notifications, main ]
+              default: notifications
+              description: |
+                Destino de la URL:
+                - `notifications`: Acceso directo al Buzón Electrónico (default).
+                - `main`: Acceso al Menú Principal de SUNAT.
+    SecureUrlResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: object
+          properties:
+            ruc:
+              type: string
+              description: RUC del cliente
+              example: "20123456789"
+            businessName:
+              type: string
+              description: Razón social del cliente
+              example: "EMPRESA DEMO SAC"
+            secureUrl:
+              type: string
+              format: uri
+              description: URL segura generada
+              example: "https:e-menu.sunat.gob.pe..."
+            reason:
+              type: string
+              description: Motivo del fallo (si aplica)
+              example: ""
+            valid:
+              type: boolean
+              description: Indica si la URL es válida
+              example: true
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        errors:
+          type: object
+          properties:
+            message:
+              oneOf:
+                - type: string
+                - type: array
+                  items:
+                    type: string
+              description: Mensaje de error (string) o lista de errores (array de strings)
+              example: "su cuenta no esta autorizada"
+            timeStamp:
+              type: string
+              format: date-time
+              example: "2026-01-24T00:17:09.913Z"

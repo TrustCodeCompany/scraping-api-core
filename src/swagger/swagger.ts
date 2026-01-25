@@ -1,6 +1,18 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { Express } from 'express';
+import fs from 'fs';
+import yaml from 'yaml';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+// @ts-ignore
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// ✅ Ruta correcta: mismo directorio
+const schemasYaml = fs.readFileSync(join(__dirname, 'schemas.yaml'), 'utf8');
+const schemasData = yaml.parse(schemasYaml);
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -86,6 +98,17 @@ const options: swaggerJsdoc.Options = {
 };
 
 const swaggerSpec = swaggerJsdoc(options);
+
+// ✅ Asegúrate de que los schemas estén correctamente fusionados
+// @ts-ignore
+if (!swaggerSpec.components?.schemas) {
+  // @ts-ignore
+  swaggerSpec.components = { schemas: {} };
+}
+
+// Fusiona nuevamente por si acaso
+// @ts-ignore
+Object.assign(swaggerSpec.components.schemas, schemasData.components?.schemas);
 
 export const setupSwagger = (app: Express) => {
   // ============================================
