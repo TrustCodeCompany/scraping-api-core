@@ -68,11 +68,11 @@ class RemypeController {
    *                     message: "URL expirada o parámetros de autenticación inválidos"
    *                     timeStamp: "2026-01-24T00:17:09.913Z"
    *               servicio_no_disponible:
-   *                 summary: SUNAT no disponible
+   *                 summary: REMYPE no disponible
    *                 value:
    *                   success: false
    *                   errors:
-   *                     message: "Servicio SUNAT no disponible"
+   *                     message: "Servicio REMYPE no disponible"
    *                     timeStamp: "2026-01-24T00:17:09.913Z"
    *       500:
    *         description: Error interno del servidor
