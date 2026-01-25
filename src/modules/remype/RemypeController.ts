@@ -43,7 +43,7 @@ class RemypeController {
    *               data:
    *                 ruc: "20123456789"
    *                 businessName: "EMPRESA DEMO SAC"
-   *                 secureUrl: "https://api-seguridad.sunat.gob.pe/v1/clientessol/..."
+   *                 secureUrl: "https://apps.trabajo.gob.pe/si.remype/index.jsp?state=m1ntr4..."
    *                 reason: ""
    *                 valid: true
    *       400:
