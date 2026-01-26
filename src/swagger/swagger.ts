@@ -3,15 +3,10 @@ import swaggerUi from 'swagger-ui-express';
 import { Express } from 'express';
 import fs from 'fs';
 import yaml from 'yaml';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import path from 'path';
 
-// @ts-ignore
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// ✅ Ruta correcta: mismo directorio
-const schemasYaml = fs.readFileSync(join(__dirname, 'schemas.yaml'), 'utf8');
+// ✅ En CommonJS, __dirname ya existe globalmente
+const schemasYaml = fs.readFileSync(path.join(__dirname, 'schemas.yaml'), 'utf8');
 const schemasData = yaml.parse(schemasYaml);
 
 const options: swaggerJsdoc.Options = {
