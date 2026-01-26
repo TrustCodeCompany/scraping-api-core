@@ -25,7 +25,7 @@ class RemypeController {
    *       content:
    *         application/json:
    *           schema:
-   *             $ref: '#/components/schemas/SecureUrlRequest'
+   *             $ref: '#/components/schemas/SecureUrlRemypeRequest'
    *           example:
    *             ruc: "20123456789"
    *             userSol: "USERTEST"

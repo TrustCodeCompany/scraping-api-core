@@ -208,6 +208,9 @@ components:
                 Destino de la URL:
                 - `notifications`: Acceso directo al Buzón Electrónico (default).
                 - `main`: Acceso al Menú Principal de SUNAT.
+    SecureUrlRemypeRequest:
+      allOf:
+        - $ref: '#components/schemas/Client'
     SecureUrlResponse:
       type: object
       properties:
