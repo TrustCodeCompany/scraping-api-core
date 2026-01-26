@@ -40,6 +40,9 @@ COPY . .
 
 RUN npm run build
 
+# ✅ SOLUCIÓN: Copiar el archivo YAML
+RUN mkdir -p dist/swagger && cp src/swagger/schemas.yaml dist/swagger/schemas.yaml
+
 # Expone el puerto en el que corre la aplicación (ajústalo al puerto que uses en Express)
 EXPOSE 3000
 
