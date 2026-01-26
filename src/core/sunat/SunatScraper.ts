@@ -1,4 +1,5 @@
 import { chromium, Browser, BrowserContext } from "playwright";
+import {ClientData, ClientInfo, NotificationInfo} from "@modules/sunat/clientinfo.model";
 
 class WebScraper {
     private browserPoolSize: number;
@@ -228,6 +229,17 @@ class WebScraper {
     }
 
     /**
+     * Divide un array en chunks de tamaño específico
+     */
+    private chunkArrayV2<T>(array: T[], size: number): T[][] {
+        const chunks: T[][] = [];
+        for (let i = 0; i < array.length; i += size) {
+            chunks.push(array.slice(i, i + size));
+        }
+        return chunks;
+    }
+
+    /**
      * Procesa UN SOLO cliente (para API uno por uno)
      */
     async scrapeSingle(url: string): Promise<any[]> {
@@ -273,6 +285,138 @@ class WebScraper {
             activeRequests: this.activeRequests
         };
     }
+
+
+    /**
+     * Scrapea con información del cliente incluida
+     */
+    async scrapeFromUrlWithClientInfo( url: string, clientData: ClientData): Promise<ClientInfo> {
+        if (!this.isInitialized) {
+            await this.initialize();
+        }
+
+        const context = await this.getContext();
+        const page = await context.newPage();
+        let notifications: NotificationInfo[] = [];
+        let success = true;
+
+        try {
+            await page.goto(url, {
+                waitUntil: 'domcontentloaded',
+                timeout: 8000
+            });
+
+            // Verificar errores
+            const errorSelectors = [
+                'text=RUC, Usuario y/o contraseña son incorrectos',
+                'text=Error en la invocación',
+                'text=Error al procesar',
+                'text=Sesión expirada'
+            ];
+
+            for (const selector of errorSelectors) {
+                if (await page.$(selector)) {
+                    success = false;
+                    break;
+                }
+            }
+
+            if (success) {
+                const frameEl = await page.waitForSelector('#iframeApplication', {
+                    timeout: 6000
+                });
+
+                if (frameEl) {
+                    const frame = await frameEl.contentFrame();
+
+                    if (frame) {
+                        try {
+                            await frame.waitForFunction(() => {
+                                const list = document.querySelector('#listaMensajes');
+                                return list && (
+                                  list.children.length > 0 ||
+                                  list.hasAttribute('data-loaded') ||
+                                  document.readyState === 'complete'
+                                );
+                            }, { timeout: 5000, polling: 100 });
+                        } catch (timeoutError) {
+                            console.warn(`⏱️ Timeout esperando lista para ${clientData.ruc}`);
+                        }
+
+                        const listaMensajes = await frame.$('#listaMensajes');
+
+                        if (listaMensajes) {
+                            // ✅ EXTRACCIÓN MEJORADA: título + fecha
+                            notifications = await frame.$$eval('#listaMensajes > li', items =>
+                              items.map(item => {
+                                  const link = item.querySelector('.linkMensaje');
+                                  const dateEl = item.querySelector('.separate, .fecPublica');
+                                  const read = (item.querySelector('input#idLeido') as HTMLInputElement)?.value || '0';
+                                  return {
+                                      title: link?.textContent?.trim() || '',
+                                      date: dateEl?.textContent?.trim() || '',
+                                      read: parseInt(read?.trim() || '0') || 6
+                                  };
+                              }).filter(n => n.title)
+                            );
+                        }
+                    }
+                }
+            }
+
+        } catch (error: any) {
+            success = false;
+            if (error.name === 'TimeoutError') {
+                console.error(`⏱️ Timeout scraping Client: ${clientData.ruc}`);
+            } else {
+                console.error(`❌ Error scraping Client ${clientData.ruc}: ${error.message}`);
+            }
+        } finally {
+            await page.close().catch(() => {});
+            await this.releaseContext(context);
+        }
+
+        return {
+            ruc: clientData.ruc,
+            businessName: clientData.businessName || 'N/A',
+            success: success,
+            notifications: notifications,
+            //url: url,
+            count: notifications.length
+        };
+    }
+
+    /**
+     * Scrapea múltiples URLs con información de clientes v2
+     */
+    async scrapeBatchWithClientInfo(clients: ClientData[]): Promise<ClientInfo[]> {
+        if (!this.isInitialized) {
+            await this.initialize();
+        }
+
+        console.log(`📦 Procesando batch de ${clients.length} clientes...`);
+
+        // ✅ PROCESAR EN CHUNKS (igual que v1)
+        const results: ClientInfo[] = [];
+        const chunks = this.chunkArrayV2(clients, this.maxConcurrent);
+
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            if (!chunk) continue;
+
+            console.log(`   📊 Procesando chunk ${i + 1}/${chunks.length} (${chunk.length} clientes)`);
+
+            const chunkResults = await Promise.all(
+              chunk.map(client => this.scrapeFromUrlWithClientInfo(client.secureUrl, client))
+            );
+
+            results.push(...chunkResults);
+        }
+
+        console.log(`✅ Batch completado: ${results.length} resultados`);
+        return results;
+    }
+
 
 }
 
