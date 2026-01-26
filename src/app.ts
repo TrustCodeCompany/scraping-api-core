@@ -1,9 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import sunatRoutes from "@modules/sunat/sunatRoutes";
+import remypeRoutes from "@modules/remype/RemypeRoutes";
 import {errorHandler} from "@shared/middleware/errorHandler";
 import {logger} from "@utils/logger";
-import { setupSwagger } from "@shared/utils/swagger";
+import { setupSwagger } from "./swagger/swagger";
 import systemRoutes from "@modules/system/systemRoutes";
 
 const path = process.env.BASE_PATH || '/api/v1';
@@ -57,6 +58,7 @@ app.get('/health', (req, res) => {
 setupSwagger(app);
 
 app.use(path + '/sunat', sunatRoutes);
+app.use(path + '/remype', remypeRoutes);
 app.use(path + '/system', systemRoutes);
 
 // Error handling
