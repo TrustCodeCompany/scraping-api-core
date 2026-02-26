@@ -15,7 +15,7 @@ router.post('/process-batch', SunatController.processBatchV2);
 router.post('/secure-url-batch', SunatController.secureUrlBatch);
 router.post('/validate-url', SunatController.validateURL);
 router.post('/secure-url', SunatController.secureUrlV2);
-//router.post('/secure-url-main', SunatController.secureUrlMain);
-//url nuevas
+router.post('/notification-detail', SunatController.getDetailClientByIndex);
+
 
 export default router;

@@ -930,6 +930,74 @@ class SunatController {
             next(error);
         }
     }
+
+    /**
+     * @swagger
+     * /sunat/notification-detail:
+     *   post:
+     *     summary: Obtiene el detalle de una notificación SUNAT por índice
+     *     description: |
+     *       Valida la URL de SUNAT y realiza scraping del detalle de una notificación específica por índice.
+     *       - Valida que la URL no haya expirado antes de realizar scraping
+     *       - Si la URL es válida, realiza scraping del detalle de la notificación
+     *       - Retorna el resultado del scraping junto con el tiempo de procesamiento
+     *     tags: [Sunat]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/NotificationDetailRequest'
+     *     responses:
+     *       200:
+     *         description: Resultado del scraping o validación fallida
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/NotificationDetailResponse'
+     *             examples:
+     *               results:
+     *       400:
+     *         description: Error de validación
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               missing_params:
+     *                 summary: Faltan parámetros
+     *                 value:
+     *                   success: false
+     *                   errors:
+     *                     message: "Se requieren los clientData e index"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
+     *       500:
+     *         description: Error interno del servidor
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/ErrorResponse'
+     *             examples:
+     *               server_error:
+     *                 summary: Error de servidor
+     *                 value:
+     *                   success: false
+     *                   errors:
+     *                     message: "Error interno al obtener el detalle de la notificación"
+     *                     timeStamp: "2026-01-24T00:17:09.913Z"
+     */
+    static async getDetailClientByIndex(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { client, index } = req.body;
+
+            const result = await sunatService.getDetailNotification(client, index);
+
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
 }
 
 export default SunatController;
