@@ -262,3 +262,36 @@ components:
               type: string
               format: date-time
               example: "2026-01-24T00:17:09.913Z"
+    NotificationDetailRequest:
+      type: object
+      properties:
+        client:
+          type: object
+          properties:
+            ruc:
+              type: string
+              description: RUC del cliente
+            userSol:
+              type: string
+              description: Usuario SOL del cliente
+            passwordSol:
+              type: string
+              description: Clave SOL del cliente
+            businessName:
+              type: string
+              description: Razón social del cliente
+        index:
+          type: number
+          description: posicion del detalle a scrapear, se obtiene del listado de notificaciones
+          example: 1
+    NotificationDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indica si el scraping se completo correctamente
+          example: true
+        data:
+          type: string
+          description: html del iframe
+          example: "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">"

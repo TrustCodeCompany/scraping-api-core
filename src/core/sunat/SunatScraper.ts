@@ -1,5 +1,6 @@
 import { chromium, Browser, BrowserContext } from "playwright";
 import {ClientData, ClientInfo, NotificationInfo} from "@modules/sunat/clientinfo.model";
+import {Client} from "@modules/clients/client.model";
 
 class WebScraper {
     private browserPoolSize: number;
@@ -286,7 +287,6 @@ class WebScraper {
         };
     }
 
-
     /**
      * Scrapea con información del cliente incluida
      */
@@ -348,14 +348,15 @@ class WebScraper {
                         if (listaMensajes) {
                             // ✅ EXTRACCIÓN MEJORADA: título + fecha
                             notifications = await frame.$$eval('#listaMensajes > li', items =>
-                              items.map(item => {
+                              items.map((item, index) => {
                                   const link = item.querySelector('.linkMensaje');
                                   const dateEl = item.querySelector('.separate, .fecPublica');
                                   const read = (item.querySelector('input#idLeido') as HTMLInputElement)?.value || '0';
                                   return {
                                       title: link?.textContent?.trim() || '',
                                       date: dateEl?.textContent?.trim() || '',
-                                      read: parseInt(read?.trim() || '0') || 6
+                                      read: parseInt(read?.trim() || '0') || 6,
+                                      index: index,
                                   };
                               }).filter(n => n.title)
                             );
@@ -417,6 +418,98 @@ class WebScraper {
         return results;
     }
 
+    /**
+     *
+     */
+    async getNotificationDetailByIndex(
+      url: string,
+      client: Client,
+      index: number
+    ): Promise<{ success: boolean; data?: string; error?: string }> {
+
+        if (!this.isInitialized) {
+            await this.initialize();
+        }
+
+        const context = await this.getContext();
+        const page = await context.newPage();
+
+        try {
+            await page.goto(url, {
+                waitUntil: 'domcontentloaded',
+                timeout: 20000
+            });
+
+            // 🔎 Entrar al iframe principal
+            const frameEl = await page.waitForSelector('#iframeApplication', {
+                timeout: 15000
+            });
+
+            const frame = await frameEl.contentFrame();
+            if (!frame) {
+                return { success: false, error: 'No se pudo acceder al iframe principal' };
+            }
+
+            // 🔎 Esperar lista
+            await frame.waitForSelector('#listaMensajes > li', { timeout: 15000 });
+
+            const listaItems = frame.locator('#listaMensajes > li');
+            const count = await listaItems.count();
+
+            if (index < 0 || index >= count) {
+                return { success: false, error: 'Índice fuera de rango' };
+            }
+
+            const item = listaItems.nth(index);
+            const link = item.locator('.linkMensaje');
+
+            // 🔥 CLICK
+            await link.click();
+
+            // 🔥 Esperar que aparezca el panel de detalle
+            await frame.waitForSelector('#detallePanel', {
+                state: 'visible',
+                timeout: 15000
+            });
+
+            // 🔥 Ahora sí buscar el iframe del detalle
+            const iframeLocator = frame.locator('#detallePanel iframe');
+
+            await iframeLocator.waitFor({
+                state: 'attached',
+                timeout: 15000
+            });
+
+            const iframeElement = await iframeLocator.elementHandle();
+            const detailFrame = await iframeElement?.contentFrame();
+
+            if (!detailFrame) {
+                return { success: false, error: 'No se pudo acceder al frame del detalle' };
+            }
+
+            await detailFrame.waitForLoadState('domcontentloaded');
+
+            const detailHtml = await detailFrame.content();
+
+            return {
+                success: true,
+                data: detailHtml
+            };
+
+        } catch (error: any) {
+
+            console.error(`❌ Error obteniendo detalle ${client.ruc}:`, error.message);
+
+            return {
+                success: false,
+                error: error.message
+            };
+
+        } finally {
+            await page.close().catch(() => {});
+            await this.releaseContext(context);
+        }
+    }
 
 }
 

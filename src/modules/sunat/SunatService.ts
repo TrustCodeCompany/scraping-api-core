@@ -511,6 +511,42 @@ class SunatService extends BaseService {
             }
         });
     }
+
+    /**
+     *
+     */
+    async getDetailNotification(client: Client, index: number) {
+        return this.handleServiceOperation(async () => {
+
+            /*const validation = await this.validateUrlBeforeScraping(clientData);
+
+            if (!validation.valid) {
+                return {
+                    valid: validation.valid,
+                    ruc: client.ruc,
+                    businessName: client.businessName,
+                    reason: validation.reason,
+                    message: validation.valid
+                      ? 'URL válida y lista para scraping'
+                      : 'URL no válida para scraping'
+                };
+            }*/
+
+            const validationUrl = await this.generateSecureUrlV2(client);
+
+            console.log(`📦 Procesando scraping de cliente con ruc ${client.ruc}`);
+            const startTime = Date.now();
+
+            const results = await WebScraper.getNotificationDetailByIndex(validationUrl.secureUrl || "", client, index);
+
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+
+            console.log(`✅ scraping completado en ${elapsed}s`);
+
+            return results;
+        });
+    }
+
 }
 
 export default new SunatService();

@@ -10,8 +10,7 @@ export interface ClientInfo {
 export interface NotificationInfo {
   title: string,
   date: String,
-  read: number,
-  index: number
+  read: number
 }
 
 export interface ClientData {
